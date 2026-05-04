@@ -18,6 +18,11 @@ app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
+
+//import controller
+import userRouter from './routes/user.routes.js'
+app.use('/api/v1/user' , userRouter)
+
 const PORT = process.env.PORT || 5000;
 
 databaseConnection()
