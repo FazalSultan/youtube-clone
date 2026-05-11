@@ -11,9 +11,9 @@ const registerUser = asyncHandler(async (req, res) => {
   if (
     [userName, email, fullName, password].some((field) => field?.trim() === "")
   ) {
-      throw new ApiError(400, "All fields are Required");
+    throw new ApiError(400, "All fields are Required");
   }
-    // is Email is Valid ...
+  // is Email is Valid ...
   if (!email.includes("@")) {
     throw new ApiError(
       400,
@@ -76,4 +76,55 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, createdUser, "User registered successfully"));
 });
 
-export { registerUser };
+const loginUser = asyncHandler(async (req, res) => {
+  /**
+   * send email/name and password from frontend
+   * Validate on the backend
+   * compare it with the datbase data
+   * generate access and refresh Token
+   * send it back to the frontend in httpOnly cookie
+   * return the response as a json to frontend
+   */
+  const { userName, email, password } = req.body;
+  if ([fullName, email, password].some((f) => f.trim() == "")) {
+    throw new ApiError(400, "All fields are required");
+  }
+
+  const user = await User.findOne({
+    $or: [{ email }, { userName }],
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const ispasswordValid = await user.isPasswordCorrect(password);
+  if (!ispasswordValid) {
+    throw new ApiError(401, "Invalid credentials");
+  }
+
+  // now generate access and refresh Token
+  const accessToken = await user.generateAccessToken();
+  const refreshTokenGen = await user.generateRefreshToken();
+
+  // now store the refreshToken in Db;
+  if (refreshTokenGen) {
+    user.refreshToken = refreshTokenGen;
+    await user.save({ validateBeforeSave: false });
+  }
+
+  const option = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  const data = res
+    .cookie("accessToken", acessToken, option)
+    .cookie("refreshToken", refreshTokenGen, option);
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, data, "User loged In Successfully .."));
+});
+
+export { registerUser, loginUser };
